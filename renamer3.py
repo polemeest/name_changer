@@ -12,6 +12,8 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
+        self.container = 0
+        self.flag = False
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(400, 430)
         MainWindow.setMinimumSize(QtCore.QSize(400, 430))
@@ -30,6 +32,8 @@ class Ui_MainWindow(object):
         self.progressBar = QtWidgets.QProgressBar(parent=self.centralwidget)
         self.progressBar.setGeometry(QtCore.QRect(10, 340, 371, 31))
         self.progressBar.setProperty("value", 0)
+        self.progressBar.setMinimum(0)
+
         self.progressBar.setObjectName("progressBar")
         self.pushButton_2 = QtWidgets.QPushButton(parent=self.centralwidget, clicked=lambda: self.rename())
         self.pushButton_2.setGeometry(QtCore.QRect(280, 130, 110, 40))
@@ -59,28 +63,34 @@ class Ui_MainWindow(object):
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
-        self.container = []
-        self.flag = False
+
 
     def click(self):
-        fname, _ = QtWidgets.QFileDialog.getOpenFileNames(self.pushButton, 'Open file', './test_txts', 'All files (*)')
+        fname, _ = QtWidgets.QFileDialog.getOpenFileNames(self.pushButton, 'Open file', '../test_txts', 'All files (*)')
+        self.container = len(fname)
         if fname:
             for item in fname:
                 self.listWidget.addItem(item.split('/')[-1])
-                self.container.append(item.split('/')[-1])
             self.label.setText('/'.join(fname[0].split('/')[:-1]))
+            self.progressBar.setValue(0)
+            self.label.setText('Ready to go')
+        else:
+            self.label.setText('0 files have been chosen. Something went wrong...')
 
     def rename(self):
         path = self.label.text()
-        pre = max(self.prefix.text(), '0')
-        suf = max(self.prefix_2.text(), '0')
+        pre, suf = max(self.prefix.text(), '0'), max(self.prefix_2.text(), '0')
+        self.progressBar.setMaximum(self.container)
         if not self.flag:
             start = time.time()
             for item in range(self.listWidget.count()):
-                form = self.listWidget.item(item).text().split('.')[-1]
-                # if self.listWidget.item(item).text() in os.listdir(path):
-               # print(f"r'{self.listWidget.item(item).text()}'")
-                os.rename(f"{path}/{self.listWidget.item(item).text()}", f"{path}/{pre}-{str(int(suf) + item)}.{form}")
+                try:
+                    form = self.listWidget.item(item).text().split('.')[-1]
+                    os.rename(f"{path}/{self.listWidget.item(item).text()}", f"{path}/{pre}-{str(int(suf) + item)}.{form}")
+                    self.progressBar.setValue(self.progressBar.value() + 1)
+                except FileExistsError:
+                    self.progressBar.setValue(self.progressBar.value() + 1)
+                    continue
             self.listWidget.clear()
             self.label.setText('Completed succesfully!')
             print(time.time() - start)
