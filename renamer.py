@@ -174,23 +174,23 @@ class Ui_MainWindow(object):
             self.label.setText('<font color="red">0 files have been chosen. Something went wrong...</font>')
 
 
-    def flagged(self, path, pre, suf, sep):
+    def unflagged(self, path, pre, suf, sep, int_check):
         for item in range(self.listWidget.count()):
             try:
                 form = self.listWidget.item(item).text().split('.')[-1]
-                os.rename(f"{path}/{self.listWidget.item(item).text()}", f"{path}/{pre}{sep}{str(int(suf) + item)}.{form}")
+                os.rename(f"{path}/{self.listWidget.item(item).text()}", f"{path}/{pre}{sep}{suf + str(item) if not int_check else str(int(suf) + item)}.{form}")
                 self.progressBar.setValue(self.progressBar.value() + 1)
             except FileExistsError:
                 self.progressBar.setValue(self.progressBar.value() + 1)
                 continue
 
 
-    def unflagged(self, pre, suf, sep):
+    def flagged(self, pre, suf, sep, int_check):
         for directory in self.dirs:
             try:
                 for index, item in enumerate(os.listdir(directory)):
                     form = item.split('.')[-1]
-                    os.rename(f'{directory}/{item}', f'{directory}/{pre}{sep}{str(int(suf) + index)}.{form}')
+                    os.rename(f'{directory}/{item}', f'{directory}/{pre}{sep}{suf + str(index) if not int_check else str(int(suf) + index)}.{form}')
                     self.progressBar.setValue(self.progressBar.value() + 1)
             except FileExistsError:
                 self.progressBar.setValue(self.progressBar.value() + 1)
@@ -200,15 +200,16 @@ class Ui_MainWindow(object):
 
     def rename(self):
         path = self.last_chosen_path
-        pre, suf, sep = max(self.prefix.text(), '0'), max(self.suffix.text(), '0'), ( '-', self.separator.text())[bool(self.separator.text())]
+        pre, suf, sep = self.prefix.text(), ('0', self.suffix.text())[bool(self.suffix.text())], self.separator.text()
         self.progressBar.setMaximum(self.container)
+        int_check = suf.isdigit()
         try:
             if not self.flag:
                 start = time.time()
-                self.flagged(path, pre, suf, sep)
+                self.unflagged(path, pre, suf, sep, int_check)
             else:
                 start = time.time()
-                self.unflagged(pre, suf, sep)
+                self.flagged(pre, suf, sep, int_check)
             self.listWidget.clear()
             self.label.setText(f'<font color="green">Completed succesfully!</font> In {round(time.time() - start, 2)} seconds')
             self.progressBar.setValue(100)
