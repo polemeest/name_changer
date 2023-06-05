@@ -10,8 +10,11 @@ class Ui_MainWindow(object):
         self.flag = False
         self.last_chosen_path = 'C:/'
         self.dirs = []
+        self.total = 0
+        self.start = ''
+        self.end = ''
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(300, 410)
+        MainWindow.resize(300, 450)
 
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -19,7 +22,7 @@ class Ui_MainWindow(object):
         sizePolicy.setHeightForWidth(MainWindow.sizePolicy().hasHeightForWidth())
         MainWindow.setSizePolicy(sizePolicy)
         MainWindow.setMinimumSize(QtCore.QSize(300, 410))
-        MainWindow.setMaximumSize(QtCore.QSize(300, 440))
+        MainWindow.setMaximumSize(QtCore.QSize(300, 450))
         font = QtGui.QFont()
         font.setFamily("Georgia")
         font.setPointSize(8)
@@ -58,21 +61,22 @@ class Ui_MainWindow(object):
         self.exec_pushButton.setObjectName("exec_pushButton")
 
         self.progressBar = QtWidgets.QProgressBar(parent=self.centralwidget)
-        self.progressBar.setGeometry(QtCore.QRect(10, 360, 291, 23))
+        self.progressBar.setGeometry(QtCore.QRect(10, 400, 291, 23))
         self.progressBar.setProperty("value", 0)
         self.progressBar.setObjectName("progressBar")
 
         self.frame = QtWidgets.QFrame(parent=self.centralwidget)
-        self.frame.setGeometry(QtCore.QRect(10, 210, 281, 141))
+        self.frame.setGeometry(QtCore.QRect(10, 200, 281, 161))
         self.frame.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
         self.frame.setFrameShadow(QtWidgets.QFrame.Shadow.Raised)
         self.frame.setObjectName("frame")
 
         self.verticalLayoutWidget = QtWidgets.QWidget(parent=self.frame)
-        self.verticalLayoutWidget.setGeometry(QtCore.QRect(0, 0, 769, 135))
+        self.verticalLayoutWidget.setGeometry(QtCore.QRect(0, 0, 281, 161))
         self.verticalLayoutWidget.setObjectName("verticalLayoutWidget")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.verticalLayoutWidget)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout.setSpacing(4)
         self.verticalLayout.setObjectName("verticalLayout")
 
         self.label = QtWidgets.QLabel(parent=self.verticalLayoutWidget)
@@ -85,6 +89,7 @@ class Ui_MainWindow(object):
         self.label.setMinimumSize(QtCore.QSize(270, 0))
         self.label.setFont(font)
         self.label.setObjectName("label")
+        self.label.setWordWrap(True)
         self.verticalLayout.addWidget(self.label)
 
         self.prefix = QtWidgets.QLineEdit(parent=self.verticalLayoutWidget)
@@ -156,7 +161,6 @@ class Ui_MainWindow(object):
         self.label.setText('Ready to go')
 
 
-
     def choose_file(self, flag=False):
         self.progressBar.setValue(0)
         self.flag = flag
@@ -178,8 +182,14 @@ class Ui_MainWindow(object):
         for item in range(self.listWidget.count()):
             try:
                 form = self.listWidget.item(item).text().split('.')[-1]
-                os.rename(f"{path}/{self.listWidget.item(item).text()}", f"{path}/{pre}{sep}{suf + str(item) if not int_check else str(int(suf) + item)}.{form}")
+                name = f"{path}/{pre}{sep}{suf + str(item) if not int_check else str(int(suf) + item).zfill(3)}.{form}"
+                if item == 0:
+                    self.start = name.split('/')[-1]
+                else:
+                    self.end = name.split('/')[-1]
+                os.rename(f"{path}/{self.listWidget.item(item).text()}", name)
                 self.progressBar.setValue(self.progressBar.value() + 1)
+                self.total += 1
             except FileExistsError:
                 self.progressBar.setValue(self.progressBar.value() + 1)
                 continue
@@ -187,20 +197,26 @@ class Ui_MainWindow(object):
 
     def flagged(self, pre, suf, sep, int_check):
         for directory in self.dirs:
-            try:
-                for index, item in enumerate(os.listdir(directory)):
+            for index, item in enumerate(os.listdir(directory)):
+                try:
                     form = item.split('.')[-1]
-                    os.rename(f'{directory}/{item}', f'{directory}/{pre}{sep}{suf + str(index) if not int_check else str(int(suf) + index)}.{form}')
+                    name = f'{directory}/{pre}{sep}{suf + str(index) if not int_check else str(int(suf) + index).zfill(3)}.{form}'
+                    if index == 0:
+                        self.start = name.split('/')[-1]
+                    else:
+                        self.end = name.split('/')[-1]
+                    os.rename(f'{directory}/{item}', name)
                     self.progressBar.setValue(self.progressBar.value() + 1)
-            except FileExistsError:
-                self.progressBar.setValue(self.progressBar.value() + 1)
-                continue
+                    self.total += 1
+                except FileExistsError:
+                    self.progressBar.setValue(self.progressBar.value() + 1)
+                    continue
         self.dirs.clear()
 
 
     def rename(self):
         path = self.last_chosen_path
-        pre, suf, sep = self.prefix.text(), ('0', self.suffix.text())[bool(self.suffix.text())], self.separator.text()
+        pre, suf, sep = self.prefix.text(), self.suffix.text(), self.separator.text()
         self.progressBar.setMaximum(self.container)
         int_check = suf.isdigit()
         try:
@@ -211,12 +227,18 @@ class Ui_MainWindow(object):
                 start = time.time()
                 self.flagged(pre, suf, sep, int_check)
             self.listWidget.clear()
-            self.label.setText(f'<font color="green">Completed succesfully!</font> In {round(time.time() - start, 2)} seconds')
-            self.progressBar.setValue(100)
+            self.label.setText(f'''<font color="green">Completed succesfully!</font> In {round(time.time() - start, 2)} seconds
+                               --------------------------------------------------------------------
+                                    Renamed {self.total} files:
+                                    {self.start} - {self.end}''')
             self.flag = False
+            if self.progressBar.value() != self.container:
+                self.progressBar.setValue(self.container)
         except Exception:
             self.label.setText(f'<font color="red">Critical Error</font>')
             self.flag = False
+
+
 
     def delete(self):
         try:
@@ -224,6 +246,7 @@ class Ui_MainWindow(object):
             self.listWidget.takeItem(chosen)
         except AttributeError:
             self.label.setText('<font color="red">Something in code went wrong.</font>')
+
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
